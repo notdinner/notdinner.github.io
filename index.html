@@ -1,0 +1,210 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Three.js 灯笼组件</title>
+    <style>
+        body { margin: 0; overflow: hidden; }
+        canvas { display: block; }
+    </style>
+</head>
+<body>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/build/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/loaders/GLTFLoader.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.132.2/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // 初始化场景
+        const scene = new THREE.Scene();
+        scene.background = new THREE.Color(0xdddddd);
+
+        // 设置相机
+        const camera = new THREE.PerspectiveCamera(75, window.innerWidth/window.innerHeight, 0.1, 1000);
+        camera.position.set(10, 10, 10);
+
+        // 创建渲染器
+        const renderer = new THREE.WebGLRenderer({antialias:true});
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.shadowMap.enabled = true;
+        document.body.appendChild(renderer.domElement);
+
+        // 轨道控制器
+        const controls = new THREE.OrbitControls(camera, renderer.domElement);
+        controls.target.set(0,0,0);
+        controls.update();
+
+        // ==================== 光源设置 ====================
+        // 环境光
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.7);
+        scene.add(ambientLight);
+
+        // 主方向光
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 1.2);
+        directionalLight.position.set(10, 20, 10);
+        directionalLight.castShadow = true;
+        directionalLight.shadow.mapSize.width = 1024;
+        directionalLight.shadow.mapSize.height = 1024;
+        scene.add(directionalLight);
+
+        // 补光
+        const fillLight = new THREE.DirectionalLight(0xffffff, 0.5);
+        fillLight.position.set(-10, 10, -10);
+        scene.add(fillLight);
+
+        // 点光源（跟随模型）
+        const pointLight = new THREE.PointLight(0xffffff, 1, 100);
+        scene.add(pointLight);
+
+        // ==================== 材质定义 ====================
+        // 灯笼主体材质 (RGB 0.729, 0.118, 0.118)
+        const redPaperMaterial = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(0.729, 0.118, 0.118), // 深红色 #BA1E1E
+            roughness: 0.8,
+            metalness: 0.0,
+            transparent: true,
+            opacity: 0.93, // 轻微透明
+            emissive: new THREE.Color(0.3, 0.0, 0.0), // 自发光红色
+            emissiveIntensity: 0.4,
+            side: THREE.DoubleSide
+        });
+
+        // 麻绳材质（流苏）
+        const ropeMaterial = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(0.71, 0.59, 0.35), // RGB(180,150,90)
+            roughness: 1.0,
+            metalness: 0.0,
+            bumpScale: 0.1,
+            emissive: new THREE.Color(0.13, 0.13, 0.0),
+            emissiveIntensity: 0.05
+        });
+
+        // 塑料假金属材质（骨架）
+        const fakeMetalMaterial = new THREE.MeshStandardMaterial({
+            color: new THREE.Color(0.71, 0.59, 0.0), // RGB(180,150,0)
+            roughness: 0.5,
+            metalness: 0.3,
+            emissive: new THREE.Color(0.07, 0.07, 0.0),
+            emissiveIntensity: 0.1
+        });
+
+        // ==================== 模型加载 ====================
+        const loader = new THREE.GLTFLoader();
+        let loadedModels = 0;
+        const totalModels = 3;
+        let lanternGroup = new THREE.Group();
+        scene.add(lanternGroup);
+
+        // 加载灯笼主体
+        loader.load('zhuti.glb', function(gltf){
+            const model = gltf.scene;
+            model.traverse(child => {
+                if(child.isMesh){
+                    child.material = redPaperMaterial;
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+            model.scale.set(0.07, 0.07, 0.07);
+            lanternGroup.add(model);
+            checkAllLoaded();
+        }, undefined, onError);
+
+        // 加载流苏
+        loader.load('suisui.glb', function(gltf){
+            const model = gltf.scene;
+            model.traverse(child => {
+                if(child.isMesh){
+                    child.material = ropeMaterial;
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+            model.scale.set(0.07, 0.07, 0.07);
+            lanternGroup.add(model);
+            checkAllLoaded();
+        }, undefined, onError);
+
+        // 加载骨架
+        loader.load('gujia.glb', function(gltf){
+            const model = gltf.scene;
+            model.traverse(child => {
+                if(child.isMesh){
+                    child.material = fakeMetalMaterial;
+                    child.castShadow = true;
+                    child.receiveShadow = true;
+                }
+            });
+            model.scale.set(0.07, 0.07, 0.07);
+            lanternGroup.add(model);
+            checkAllLoaded();
+        }, undefined, onError);
+
+        function checkAllLoaded() {
+            loadedModels++;
+            if(loadedModels === totalModels) {
+                lanternGroup.position.set(0, 0, 0);
+                isModelLoaded = true;
+            }
+        }
+
+        function onError(err) {
+            console.error('模型加载失败:', err);
+            const testCube = new THREE.Mesh(
+                new THREE.BoxGeometry(1,1,1),
+                new THREE.MeshStandardMaterial({color: 0xFF0000})
+            );
+            scene.add(testCube);
+            isModelLoaded = true;
+        }
+
+        // ==================== 动画设置 ====================
+        let isModelLoaded = false;
+        const animationState = {
+            flyingProgress: 0,
+            flyingDuration: 240,
+            rotationSpeed: 0.01,
+            floatIntensity: 0.3
+        };
+
+        function easeOutElastic(t){
+            const p = 0.3;
+            return Math.pow(2, -10 * t) * Math.sin((t - p / 4) * (2 * Math.PI) / p) + 1;
+        }
+
+        function animate(){
+            requestAnimationFrame(animate);
+
+            if(isModelLoaded && lanternGroup.children.length > 0){
+                if(animationState.flyingProgress < animationState.flyingDuration){
+                    animationState.flyingProgress++;
+                    const progress = animationState.flyingProgress / animationState.flyingDuration;
+                    const easedProgress = easeOutElastic(progress);
+
+                    lanternGroup.position.x = 20 * (1 - easedProgress);
+                    lanternGroup.position.y = Math.sin(Date.now() * 0.003) * animationState.floatIntensity;
+
+                    if(progress > 0.7){
+                        animationState.rotationSpeed = 0.005;
+                    }
+                } else {
+                    lanternGroup.position.y = Math.sin(Date.now() * 0.003) * animationState.floatIntensity;
+                }
+
+                lanternGroup.rotation.y += animationState.rotationSpeed;
+                pointLight.position.copy(lanternGroup.position);
+            }
+
+            controls.update();
+            renderer.render(scene, camera);
+        }
+        animate();
+
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+    </script>
+</body>
+</html>
